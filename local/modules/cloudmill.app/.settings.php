@@ -1,12 +1,12 @@
 <?php
 
-use Cloudmill\App\Services\BasketService;
-use CloudMill\App\Services\YandexSmartCaptchaService;
+use CloudMill\App\Basket\Service\BasketService;
+use CloudMill\App\Integrations\Yandex\SmartCaptchaClient;
 use Bitrix\Main\DI\ServiceLocator;
 use Bitrix\Main\Loader;
 use Bitrix\Sale\Basket;
 use Bitrix\Sale\Fuser;
-use CloudMill\App\Settings\PageSettings;
+use CloudMill\App\Infrastructure\Settings\PageSettings;
 
 return [
     'services' => [
@@ -27,19 +27,19 @@ return [
                     );
                 },
             ],
-            'cloudmill.' . YandexSmartCaptchaService::class => [
+            'cloudmill.' . SmartCaptchaClient::class => [
                 'constructor' => static function () {
                     $url = 'https://smartcaptcha.yandexcloud.net/validate';
                     $publicKey = PageSettings::get('CAPTCHA_PUBLIC_KEY');
                     $privateKey = PageSettings::get('CAPTCHA_PRIVATE_KEY');
-                    return new YandexSmartCaptchaService($url, $publicKey, $privateKey);
+                    return new SmartCaptchaClient($url, $publicKey, $privateKey);
                 }
             ]
         ],
     ],
     'controllers' => [
         'value' => [
-            'defaultNamespace' => '\\Cloudmill\\App\\Controller',
+            'defaultNamespace' => '\\CloudMill\\App',
         ],
         'readonly' => true,
     ],

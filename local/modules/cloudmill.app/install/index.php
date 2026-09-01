@@ -10,9 +10,9 @@ class cloudmill_app extends CModule
     public function __construct()
     {
         $this->MODULE_ID = 'cloudmill.app';
-        $this->MODULE_VERSION = "1.0.0";
+        $this->MODULE_VERSION = "2.0.0";
         $this->MODULE_VERSION_DATE = "2025-01-01 00:00:00";
-        $this->MODULE_NAME = "Cloudmill: Основной модуль";
+        $this->MODULE_NAME = "CloudMill: Основной модуль";
         $this->MODULE_DESCRIPTION = "Модуль содержит кастомные классы и функции, обработчики событий, агенты";
         $this->PARTNER_NAME = "cloudmill";
         $this->PARTNER_URI = "https://cloudmill.ru";
@@ -50,7 +50,7 @@ class cloudmill_app extends CModule
 
     private function installAgent(): void
     {
-        $agentName = '\\Cloudmill\\App\\Agents\\FavoriteAgent::removeExpiredShares();';
+        $agentName = '\\CloudMill\\App\\Infrastructure\\Bitrix\\Agents\\FavoriteAgent::removeExpiredShares();';
 
         // Проверяем, существует ли уже агент
         $existingAgent = \CAgent::GetList(
@@ -74,6 +74,6 @@ class cloudmill_app extends CModule
 
     private function uninstallAgent(): void
     {
-        \CAgent::RemoveAgent('\\Cloudmill\\App\\Agents\\FavoriteAgent::removeExpiredShares();', $this->MODULE_ID);
+        \CAgent::RemoveAgent('\\CloudMill\\App\\Infrastructure\\Bitrix\\Agents\\FavoriteAgent::removeExpiredShares();', $this->MODULE_ID);
     }
 }

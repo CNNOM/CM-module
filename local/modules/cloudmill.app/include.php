@@ -1,12 +1,12 @@
 <?php
 
 // uncaught exception handler logger
-use Cloudmill\App\Loggers\ExceptionHandlerLog;
-use Cloudmill\App\Loggers\Logger;
+use CloudMill\App\Infrastructure\Logging\ExceptionHandlerLog;
+use CloudMill\App\Infrastructure\Logging\Logger;
 
 ExceptionHandlerLog::register(
     logDir: __DIR__ . '/logs/',
-    additionalLogger: new Logger(sendEmailAlert: true, module: 'Cloudmill.app', auditType: 'UNHANDLED_EXCEPTION')
+    additionalLogger: new Logger(sendEmailAlert: true, module: 'CloudMill.app', auditType: 'UNHANDLED_EXCEPTION')
 );
 
 function dd($data)
