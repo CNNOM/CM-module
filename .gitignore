@@ -1,0 +1,8 @@
+/*
+!/.gitignore
+!/local/
+!/local/**
+!/docker/
+!/docker/**
+
+.DS_Store
