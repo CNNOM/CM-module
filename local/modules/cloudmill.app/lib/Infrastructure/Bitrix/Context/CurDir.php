@@ -5,7 +5,7 @@ namespace CloudMill\App\Infrastructure\Bitrix\Context;
 
 use Bitrix\Main\Application;
 
-final class CurrentDirectory
+final class CurDir
 {
     private array $explodedDir;
     public string $last;

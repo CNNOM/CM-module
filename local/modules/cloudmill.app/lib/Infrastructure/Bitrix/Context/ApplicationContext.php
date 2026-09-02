@@ -7,8 +7,6 @@ use Bitrix\Main\Application;
 use Bitrix\Main\Data\Connection;
 use Bitrix\Main\HttpRequest;
 use Bitrix\Main\HttpResponse;
-use CloudMill\App\Infrastructure\Bitrix\Context\CurrentDirectory;
-
 final class ApplicationContext
 {
     private static HttpRequest $request;

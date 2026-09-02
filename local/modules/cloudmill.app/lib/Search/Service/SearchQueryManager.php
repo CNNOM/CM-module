@@ -6,6 +6,21 @@ namespace CloudMill\App\Search\Service;
 final class SearchQueryManager
 {
     private const SEARCH_POPULAR_HL_CODE = 'SearchPopular';
+
+    public static function buildNameFilter(string $normalizedQuery, string $queryStem): array
+    {
+        if ($queryStem !== '' && $queryStem !== $normalizedQuery) {
+            return [
+                [
+                    'LOGIC' => 'OR',
+                    ['%NAME' => $normalizedQuery],
+                    ['%NAME' => $queryStem],
+                ],
+            ];
+        }
+
+        return ['%NAME' => $normalizedQuery];
+    }
     private const BOOLEAN_TRUE = 1;
     private const BOOLEAN_FALSE = 0;
 

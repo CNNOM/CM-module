@@ -7,3 +7,4 @@
 /docker
 
 **/.DS_Store
+/local/modules/cloudmill.app/logs
