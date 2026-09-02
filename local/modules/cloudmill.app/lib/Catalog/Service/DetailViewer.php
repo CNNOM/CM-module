@@ -11,24 +11,6 @@ class DetailViewer
         'photo'  => 'cloudmill:detail.photo',
         'figure' => 'cloudmill:detail.figure',
         'slider' => 'cloudmill:detail.slider',
-        /* для страницы Доставка */
-        'paragraph_delivery' => 'cloudmill:detail.paragraph_delivery',
-        'grey_text_delivery' => 'cloudmill:detail.grey_text_delivery',
-        'text_delivery' => 'cloudmill:detail.text_delivery',
-        'list_delivery' => 'cloudmill:detail.list_delivery',
-        'list_item_delivery' => 'cloudmill:detail.list_item_delivery',
-        'button_delivery' => 'cloudmill:detail.button_delivery',
-        'note_delivery' => 'cloudmill:detail.note_delivery',
-        /* для страницы Возврат */
-        'title_refund' => 'cloudmill:detail.title_refund',
-        'info_refund' => 'cloudmill:detail.info_refund',
-        'lead_refund' => 'cloudmill:detail.lead_refund',
-        'text_refund' => 'cloudmill:detail.text_refund',
-        'list_refund' => 'cloudmill:detail.list_refund',
-        'list_item_refund' => 'cloudmill:detail.list_item_refund',
-        'step_refund' => 'cloudmill:detail.step_refund',
-        'step_num_refund' => 'cloudmill:detail.step_num_refund',
-        'note_refund' => 'cloudmill:detail.note_refund',
     ];
 
     public function __construct(array $fileArray = [])

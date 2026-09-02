@@ -10,6 +10,6 @@ class FavoriteAgent
     {
         FavoritesService::removeExpiredShares();
 
-        return '\\CloudMill\\App\\Agents\\FavoriteAgent::removeExpiredShares();';
+        return '\\CloudMill\\App\\Infrastructure\\Bitrix\\Agents\\FavoriteAgent::removeExpiredShares();';
     }
 }

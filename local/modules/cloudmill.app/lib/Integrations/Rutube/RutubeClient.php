@@ -43,7 +43,6 @@ final class RutubeClient
         return null;
     }
 
-
     private static function fetchVideoData(string $videoId): array
     {
         $response = (new BitrixHttpTransport())->get(self::API_BASE_URL . $videoId . '/');

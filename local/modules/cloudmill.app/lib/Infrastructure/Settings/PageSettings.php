@@ -37,7 +37,7 @@ final class PageSettings
     {
         self::init();
 
-        if($tildeVal){
+        if ($tildeVal) {
             return self::$data['~'][$name] ?? null;
         }
 

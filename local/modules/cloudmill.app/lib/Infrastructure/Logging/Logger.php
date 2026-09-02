@@ -16,7 +16,7 @@ final class Logger implements LoggerInterface
     private readonly ?string $auditType;
     private bool $sendEmailAlert;
 
-    public function __construct(bool $sendEmailAlert = true, string $module = null, string $auditType = null)
+    public function __construct(bool $sendEmailAlert = true, ?string $module = null, ?string $auditType = null)
     {
         $this->sendEmailAlert = $sendEmailAlert;
         $this->module = $module;
@@ -41,7 +41,7 @@ final class Logger implements LoggerInterface
 
     public function sendEmailAlert(string $html, string $subject): bool
     {
-        if(!PageSettings::EXCEPTION_MAIL_TO){
+        if (!PageSettings::EXCEPTION_MAIL_TO) {
             return true;
         }
 

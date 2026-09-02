@@ -17,7 +17,6 @@ final class BlogRutubeVideo
     private const PROPERTY_RAW_LINK = 'RAW_LINK';
     private const PROPERTY_PIC_JPG = 'PIC_JPG';
 
-
     private static bool $handlerDisallow = false;
 
     public static function addVideoInfo(array &$fields): void
@@ -86,8 +85,7 @@ final class BlogRutubeVideo
         }
         if ($arr['DURATION']) {
             $sec = intval($arr['DURATION'] / 1000);
-            $duration = gmdate("H:i:s", $sec);
-            $arr['DURATION'] = $duration;
+            $arr['DURATION'] = gmdate("H:i:s", $sec);
         }
 
         foreach ($arr as $k => $v) {

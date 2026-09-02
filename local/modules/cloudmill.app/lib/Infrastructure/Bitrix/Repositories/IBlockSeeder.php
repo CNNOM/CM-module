@@ -547,13 +547,13 @@ class IBlockSeeder
 
 // хелпер для быстрого вызова
 /*
-$iblockCode = 'blog2';
+$iblockCode = 'content';
 $res = IBlockSeeder::firstOrCreateIBlock(
     $iblockCode,
-    'Блог 2',
-    '/blog/',
-    '/blog/#SECTION_CODE#/',
-    '/blog/#SECTION_CODE#/#CODE#/',
+    'Контент',
+    '/content/',
+    '/content/#SECTION_CODE#/',
+    '/content/#SECTION_CODE#/#CODE#/',
     'content2',
     'Контент2',
     501,
@@ -609,7 +609,7 @@ IBlockSeeder::firstOrCreateElementsByMap(
                 'replicate' => 3,
                 'NAME' => 'Элемент 1 | Раздел 1',
                 'PROPERTY_VALUES' => [
-                    'PIC_JPG' => '/images/news-card-img.png',
+                    'PIC_JPG' => '/upload/example.jpg',
                     'NAME' => '
                                 Новинка!
                                 Коллекция СORNER
@@ -626,7 +626,7 @@ IBlockSeeder::firstOrCreateElementsByMap(
             [
                 'NAME' => 'Элемент 2 | Раздел 1',
                 'PROPERTY_VALUES' => [
-                    'PIC_JPG' => '/images/news-card-img.png',
+                    'PIC_JPG' => '/upload/example.jpg',
                     'NAME' => '
                 Новинка!
                 Коллекция СORNER
@@ -645,7 +645,7 @@ IBlockSeeder::firstOrCreateElementsByMap(
             [
                 'NAME' => 'Элемент 1 | Раздел 2',
                 'PROPERTY_VALUES' => [
-                    'PIC_JPG' => '/images/news-card-img.png',
+                    'PIC_JPG' => '/upload/example.jpg',
                     'NAME' => 'simple text 1',
                     'E_TYPE' => 121,
                     'DESC' => ['VALUE' => 'text1']
@@ -654,7 +654,7 @@ IBlockSeeder::firstOrCreateElementsByMap(
             [
                 'NAME' => 'Элемент 2 | Раздел 2',
                 'PROPERTY_VALUES' => [
-                    'PIC_JPG' => '/images/news-card-img.png',
+                    'PIC_JPG' => '/upload/example.jpg',
                     'NAME' => 'simple text 2',
                     'E_TYPE' => 122,
                     'DESC' => ['VALUE' => 'text2']
