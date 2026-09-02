@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace CloudMill\App\Catalog\Service;
+namespace CloudMill\App\Infrastructure\Bitrix\Presentation;
 
 class DetailViewer
 {
@@ -34,9 +34,7 @@ class DetailViewer
         return $html;
     }
 
-    /**
-     * Обрабатывает парные теги [TYPE ...] ... [/TYPE] с рекурсией (поддерживает вложенные тэги).
-     */
+    /** Обрабатывает парные теги с поддержкой вложенных тегов. */
     private function parsePairedTags(string $html): string
     {
         $pattern = '~\[([A-Z_][A-Z0-9_]*)(\s+[^\]]*?)?\s*\]((?:(?R)|\[(?!/\1\s*\])|[^\[])*)\[/\1\s*\]~is';
@@ -56,13 +54,13 @@ class DetailViewer
             $attributes = $this->extractAttributes($attrString);
 
             $params = $this->resolveParams($attributes, $componentName);
-
             $params['content'] = $processedContent;
 
             return $this->renderComponent($componentName, $params);
         }, $html);
     }
 
+    /** Обрабатывает одиночный тег. */
     private function processTag($match): string
     {
         $type = $match[1];
@@ -70,27 +68,31 @@ class DetailViewer
         if (!$componentName) {
             return '';
         }
+
         $attributes = $this->extractAttributes($match[2]);
-        $params = $this->resolveParams($attributes, $componentName);
-        return $this->renderComponent($componentName, $params);
+        return $this->renderComponent($componentName, $this->resolveParams($attributes, $componentName));
     }
 
+    /** Получает атрибуты из строки параметров тега. */
     private function extractAttributes(string $attrString): array
     {
         $params = [];
-        if (preg_match_all('/(\w+)=(["\'])(.*?)\2/', $attrString, $matches, PREG_SET_ORDER)) {
+        if (preg_match_all("/(\\w+)=([\"'])(.*?)\\2/", $attrString, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $params[$match[1]] = $match[3];
             }
         }
+
         return $params;
     }
 
+    /** Находит Bitrix-компонент по имени тега. */
     private function resolveComponent(string $type): ?string
     {
         return $this->componentMap[$type] ?? null;
     }
 
+    /** Добавляет общие параметры к параметрам компонента. */
     private function resolveParams(array|null $attributes, string $componentName): array
     {
         $params = $attributes ?? [];
@@ -99,15 +101,13 @@ class DetailViewer
         return $params;
     }
 
+    /** Рендерит найденный Bitrix-компонент. */
     private function renderComponent(string $componentName, array $params): string
     {
         ob_start();
         global $APPLICATION;
-        $APPLICATION->IncludeComponent(
-            $componentName,
-            '',
-            $params
-        );
+        $APPLICATION->IncludeComponent($componentName, '', $params);
+
         return ob_get_clean();
     }
 }

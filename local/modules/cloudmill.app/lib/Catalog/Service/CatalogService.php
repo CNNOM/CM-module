@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace CloudMill\App\Catalog\Service;
 
-use Bitrix\Main\Loader;
+use CloudMill\App\Catalog\Service\Abstract\AbstractIblockService;
 use CloudMill\App\Infrastructure\Bitrix\Wrappers\IblockManager;
 
 final class CatalogService extends AbstractIblockService
@@ -17,12 +17,24 @@ final class CatalogService extends AbstractIblockService
     /** Обязательные поля товара каталога. */
     private const PRODUCT_SELECT = ['ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE', 'DETAIL_PICTURE'];
 
-    /** Сервис получения торговых предложений товара. */
-    public function __construct(private readonly OffersService $offersService)
+    /**
+     * Сервисы получения ТП и коммерческих данных товаров.
+     *
+     * @param OffersService $offersService Сервис торговых предложений.
+     * @param ProductDataService $productDataService Сервис цены и количества.
+     */
+    public function __construct(
+        private readonly OffersService $offersService,
+        private readonly ProductDataService $productDataService,
+    )
     {
     }
 
-    /** Получает название инфоблока каталога. */
+    /**
+     * Получает название инфоблока каталога.
+     *
+     * @return string Название каталога или пустая строка, если инфоблок не найден.
+     */
     public function getName(): string
     {
         $iblockId = $this->getIblockId();
@@ -38,7 +50,16 @@ final class CatalogService extends AbstractIblockService
         return trim((string)($iblockList[$iblockId]['NAME'] ?? ''));
     }
 
-    /** Получает товары каталога по ID. */
+    /**
+     * Получает активные товары каталога по их ID.
+     *
+     * К стандартным полям добавляются количество, базовая цена и валюта.
+     * Дополнительные поля передаются через параметр $select.
+     *
+     * @param array<int> $ids ID товаров каталога.
+     * @param array<string> $select Дополнительные поля и свойства товара.
+     * @return array<int, array<string, mixed>> Товары, индексированные по ID.
+     */
     public function findByIds(array $ids, array $select = []): array
     {
         $ids = $this->normalizeIds($ids);
@@ -58,23 +79,59 @@ final class CatalogService extends AbstractIblockService
             preferByID: true
         );
 
-        return $this->appendCatalogData($products);
+        return $this->productDataService->append($products);
     }
 
-    /** Получает разделы каталога по фильтру. */
-    public function getSections(array $filter = [], int $limit = 6, array $select = []): array
+    /**
+     * Получает разделы каталога.
+     *
+     * К переданному фильтру автоматически добавляются ID каталожного инфоблока.
+     *
+     * @param array<string|int, mixed> $filter Дополнительные условия выборки.
+     * @param int $limit Максимальное количество разделов.
+     * @param array<string> $select Дополнительные поля раздела.
+     * @return array<int, array<string, mixed>> Список разделов каталога.
+     */
+    public function getSections(
+        array $filter = [],
+        int $limit = 6,
+        array $select = [],
+        bool $withCount = false
+    ): array
     {
         $filter = $this->withCatalogIblock($filter);
 
         return IblockManager::getSectionList(
             order: ['SORT' => 'ASC', 'NAME' => 'ASC'],
             filter: $filter,
+            bIncCnt: $withCount,
             select: $this->mergeSelect(self::SECTION_SELECT, $select),
             nav: ['nTopCount' => $limit]
         );
     }
 
-    /** Получает товары каталога по фильтру. */
+    /** Получает один раздел каталога по символьному коду. */
+    public function getSectionByCode(string $code, array $select = []): array
+    {
+        return $this->getSections(
+            filter: ['CODE' => $code],
+            limit: 1,
+            select: $select
+        )[0] ?? [];
+    }
+
+    /**
+     * Получает товары каталога по фильтру.
+     *
+     * К стандартным полям автоматически добавляются количество, базовая цена
+     * и валюта. При $withOffers товары также получают массив торговых предложений
+     * в поле OFFERS.
+     *
+     * @param array<string|int, mixed> $filter Дополнительные условия выборки.
+     * @param array<string> $select Дополнительные поля и свойства товара.
+     * @param bool $withOffers Добавлять ли торговые предложения товаров.
+     * @return array<int, array<string, mixed>> Список товаров каталога.
+     */
     public function getProducts(array $filter = [], array $select = [], bool $withOffers = false): array
     {
         $filter = $this->withCatalogIblock($filter);
@@ -85,44 +142,41 @@ final class CatalogService extends AbstractIblockService
             select: $this->mergeSelect(self::PRODUCT_SELECT, $select)
         );
 
-        return $this->appendCatalogData($products, $withOffers);
+        $products = $this->productDataService->append($products);
+
+        if ($withOffers) {
+            foreach ($products as &$product) {
+                $product['OFFERS'] = $this->getOffers((int)$product['ID']);
+            }
+            unset($product);
+        }
+
+        return $products;
     }
 
-    /** Получает торговые предложения конкретного товара. */
+    /**
+     * Получает торговые предложения конкретного товара.
+     *
+     * @param int $productId ID товара каталога.
+     * @param array<string> $select Дополнительные поля и свойства торгового предложения.
+     * @return array<int, array<string, mixed>> Список торговых предложений.
+     */
     public function getOffers(int $productId, array $select = []): array
     {
         return $this->offersService->getByProductId($productId, $select);
     }
 
+    /**
+     * Добавляет ID каталожного инфоблока в фильтр.
+     *
+     * @param array<string|int, mixed> $filter Исходный фильтр.
+     * @return array<string|int, mixed> Фильтр с ограничением по каталогу.
+     */
     private function withCatalogIblock(array $filter): array
     {
         $filter['IBLOCK_ID'] = $this->getIblockId();
 
         return $filter;
-    }
-
-    /** Добавляет к товарам количество, цену, валюту и торговые предложения. */
-    private function appendCatalogData(array $products, bool $withOffers = false): array
-    {
-        if (!$products || !Loader::includeModule('catalog')) {
-            return $products;
-        }
-
-        foreach ($products as &$product) {
-            $catalogProduct = \CCatalogProduct::GetByID((int)$product['ID']) ?: [];
-            $basePrice = \CPrice::GetBasePrice((int)$product['ID']) ?: [];
-
-            $product['QUANTITY'] = (float)($catalogProduct['QUANTITY'] ?? 0);
-            $product['PRICE'] = isset($basePrice['PRICE']) ? (float)$basePrice['PRICE'] : null;
-            $product['CURRENCY'] = (string)($basePrice['CURRENCY'] ?? '');
-
-            if ($withOffers) {
-                $product['OFFERS'] = $this->getOffers((int)$product['ID']);
-            }
-        }
-        unset($product);
-
-        return $products;
     }
 
 }

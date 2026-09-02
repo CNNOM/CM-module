@@ -9,6 +9,7 @@ use Bitrix\Sale\Order;
 use Bitrix\Sale\PaySystem;
 use CloudMill\App\Order\Dto\OrderDataDto;
 use CloudMill\App\Basket\Service\ServiceProvider;
+use CloudMill\App\Catalog\Service\WarehouseStockService;
 use CloudMill\App\Order\Validator\OrderValidator;
 use RuntimeException;
 use CEvent;
@@ -49,18 +50,18 @@ final class OrderService
         self::setDelivery($order, $data);
         self::setPayment($order);
 
-        $stockChanges = StockService::decreaseForBasket($basket);
+        $stockChanges = WarehouseStockService::decreaseForBasket($basket);
 
         try {
             $order->doFinalAction(true);
             $result = $order->save();
         } catch (\Throwable $exception) {
-            StockService::restore($stockChanges);
+            WarehouseStockService::restore($stockChanges);
             throw $exception;
         }
 
         if (!$result->isSuccess()) {
-            StockService::restore($stockChanges);
+            WarehouseStockService::restore($stockChanges);
             throw new RuntimeException(implode('; ', $result->getErrorMessages()));
         }
 

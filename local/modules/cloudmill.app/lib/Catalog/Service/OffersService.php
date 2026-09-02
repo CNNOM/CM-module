@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace CloudMill\App\Catalog\Service;
 
-use Bitrix\Main\Loader;
+use CloudMill\App\Catalog\Service\Abstract\AbstractIblockService;
 use CloudMill\App\Infrastructure\Bitrix\Wrappers\IblockManager;
 
 final class OffersService extends AbstractIblockService
@@ -14,7 +14,21 @@ final class OffersService extends AbstractIblockService
     /** Обязательные поля торгового предложения. */
     private const SELECT = ['ID', 'IBLOCK_SECTION_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE', 'DETAIL_PICTURE'];
 
-    /** Получает торговые предложения конкретного товара. */
+    /** Сервис коммерческих данных торговых предложений. */
+    public function __construct(private readonly ProductDataService $productDataService)
+    {
+    }
+
+    /**
+     * Получает активные торговые предложения конкретного товара.
+     *
+     * К стандартным полям добавляются количество, базовая цена и валюта.
+     * Дополнительные поля передаются через параметр $select.
+     *
+     * @param int $productId ID товара каталога из свойства CML2_LINK.
+     * @param array<string> $select Дополнительные поля и свойства ТП.
+     * @return array<int, array<string, mixed>> Список торговых предложений.
+     */
     public function getByProductId(int $productId, array $select = []): array
     {
         if ($productId <= 0) {
@@ -38,10 +52,16 @@ final class OffersService extends AbstractIblockService
             preferByID: true
         );
 
-        return $this->appendCatalogData($offers);
+        return $this->productDataService->append($offers);
     }
 
-    /** Получает торговые предложения по их ID. */
+    /**
+     * Получает активные торговые предложения по их ID.
+     *
+     * @param array<int> $ids ID торговых предложений.
+     * @param array<string> $select Дополнительные поля и свойства ТП.
+     * @return array<int, array<string, mixed>> Торговые предложения, индексированные по ID.
+     */
     public function findByIds(array $ids, array $select = []): array
     {
         $ids = $this->normalizeIds($ids);
@@ -61,26 +81,7 @@ final class OffersService extends AbstractIblockService
             preferByID: true
         );
 
-        return $this->appendCatalogData($offers);
+        return $this->productDataService->append($offers);
     }
 
-    /** Добавляет к торговым предложениям количество, цену и валюту. */
-    private function appendCatalogData(array $offers): array
-    {
-        if (!$offers || !Loader::includeModule('catalog')) {
-            return $offers;
-        }
-
-        foreach ($offers as &$offer) {
-            $catalogProduct = \CCatalogProduct::GetByID((int)$offer['ID']) ?: [];
-            $basePrice = \CPrice::GetBasePrice((int)$offer['ID']) ?: [];
-
-            $offer['QUANTITY'] = (float)($catalogProduct['QUANTITY'] ?? 0);
-            $offer['PRICE'] = isset($basePrice['PRICE']) ? (float)$basePrice['PRICE'] : null;
-            $offer['CURRENCY'] = (string)($basePrice['CURRENCY'] ?? '');
-        }
-        unset($offer);
-
-        return $offers;
-    }
 }
