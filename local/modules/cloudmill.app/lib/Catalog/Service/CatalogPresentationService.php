@@ -50,8 +50,6 @@ final class CatalogPresentationService
 
             $filter['DEPTH_LEVEL'] = (int)$parentSection['DEPTH_LEVEL'] + 1;
             $filter['SECTION_ID'] = (int)$parentSection['ID'];
-        } else {
-            $filter['DEPTH_LEVEL'] = 1;
         }
 
         $sections = $this->catalogService->getSections(
@@ -60,6 +58,19 @@ final class CatalogPresentationService
             select: ['ID', 'CODE', 'NAME', 'SECTION_PAGE_URL', 'DEPTH_LEVEL', 'IBLOCK_SECTION_ID', 'UF_*'],
             withCount: true
         );
+
+        error_log('[CatalogPresentationService::getSectionTabsArray] sections before tabs: ' . json_encode([
+            'filter' => $filter,
+            'onlyWithItems' => $onlyWithItems,
+            'count' => count($sections),
+            'sections' => array_map(static fn(array $section): array => [
+                'ID' => $section['ID'] ?? null,
+                'CODE' => $section['CODE'] ?? null,
+                'NAME' => $section['NAME'] ?? null,
+                'DEPTH_LEVEL' => $section['DEPTH_LEVEL'] ?? null,
+                'ELEMENT_CNT' => $section['ELEMENT_CNT'] ?? null,
+            ], $sections),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         $activeFound = false;
         $sectionTabs = [];
@@ -82,6 +93,16 @@ final class CatalogPresentationService
 
             $sectionTabs[$section['ID']] = $section;
         }
+
+        error_log('[CatalogPresentationService::getSectionTabsArray] tabs after filtering: ' . json_encode([
+            'count' => count($sectionTabs),
+            'tabs' => array_map(static fn(array $tab): array => [
+                'ID' => $tab['ID'] ?? null,
+                'CODE' => $tab['CODE'] ?? null,
+                'NAME' => $tab['NAME'] ?? null,
+                'IS_ACTIVE' => $tab['IS_ACTIVE'] ?? false,
+            ], $sectionTabs),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         if ($addParentTab !== '' && $sectionTabs) {
             $firstSection = reset($sectionTabs);

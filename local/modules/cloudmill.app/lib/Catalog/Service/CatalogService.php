@@ -99,15 +99,34 @@ final class CatalogService extends AbstractIblockService
         bool $withCount = false
     ): array
     {
-        $filter = $this->withCatalogIblock($filter);
+        $filter = $this->withCatalogIblock([
+            'GLOBAL_ACTIVE' => 'Y',
+            ...$filter,
+        ]);
 
-        return IblockManager::getSectionList(
+        $sections = IblockManager::getSectionList(
             order: ['SORT' => 'ASC', 'NAME' => 'ASC'],
             filter: $filter,
             bIncCnt: $withCount,
             select: $this->mergeSelect(self::SECTION_SELECT, $select),
-            nav: ['nTopCount' => $limit]
+            nav: $limit > 0 ? ['nTopCount' => $limit] : false
         );
+
+        error_log('[CatalogService::getSections] ' . json_encode([
+            'filter' => $filter,
+            'limit' => $limit,
+            'withCount' => $withCount,
+            'count' => count($sections),
+            'sections' => array_map(static fn(array $section): array => [
+                'ID' => $section['ID'] ?? null,
+                'CODE' => $section['CODE'] ?? null,
+                'NAME' => $section['NAME'] ?? null,
+                'DEPTH_LEVEL' => $section['DEPTH_LEVEL'] ?? null,
+                'ELEMENT_CNT' => $section['ELEMENT_CNT'] ?? null,
+            ], $sections),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $sections;
     }
 
     /** Получает один раздел каталога по символьному коду. */

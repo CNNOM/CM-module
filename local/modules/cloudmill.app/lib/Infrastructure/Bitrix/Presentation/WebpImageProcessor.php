@@ -15,7 +15,7 @@ final class WebpImageProcessor
         }
 
         $picJpg = CFile::ResizeImageGet($fileID, ['width' => $width, 'height' => $height])['src'];
-        return WebpImageHandler::createWebpImageLayer($picJpg, width: $width, height: $height);
+        return self::createWebpImageLayer($picJpg, width: $width, height: $height);
     }
 
     const ALLOW_FILE_EXT = ['jpg', 'jpeg', 'png'];
