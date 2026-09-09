@@ -8,7 +8,6 @@ use CloudMill\App\Favorites\Service\FavoritesService;
 
 final class FavoritesController extends Controller
 {
-    protected array $response = [];
     public function configureActions(): array
     {
         $commonFilters = [
@@ -25,6 +24,7 @@ final class FavoritesController extends Controller
             'add'    => $commonFilters,
             'remove' => $commonFilters,
             'clear'  => $commonFilters,
+            'share'  => $commonFilters,
         ];
     }
 

@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace CloudMill\App\Compare\Service;
 
-use Bitrix\Main\Loader;
-use CIBlockElement;
-use CIBlockSection;
-use CloudMill\App\Infrastructure\Bitrix\Wrappers\IblockManager;
+use CloudMill\App\Catalog\Service\CatalogService;
+use CloudMill\App\Catalog\Service\OffersService;
+use CloudMill\App\Infrastructure\Storage\CookieListStorage;
 
 final class CatalogCompareService
 {
@@ -17,6 +16,12 @@ final class CatalogCompareService
         'MORE_PHOTO',
         'FILES',
     ];
+
+    public function __construct(
+        private readonly CatalogService $catalogService,
+        private readonly OffersService $offersService,
+    ) {
+    }
 
     public function getPageData(array $ids, ?string $sectionCode = null): array
     {
@@ -40,7 +45,7 @@ final class CatalogCompareService
 
     public function getCompareItems(array $ids): array
     {
-        $ids = $this->normalizeCompareIds($ids);
+        $ids = CookieListStorage::normalizeIds($ids, PHP_INT_MAX);
         if (!$ids) {
             return [];
         }
@@ -86,15 +91,7 @@ final class CatalogCompareService
             return;
         }
 
-        $products = IblockManager::getList(
-            filter: [
-                'IBLOCK_ID' => IblockManager::getID('catalog'),
-                'ID' => array_values($productIds),
-                'ACTIVE' => 'Y',
-            ],
-            select: ['ID', 'IBLOCK_SECTION_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE', 'DETAIL_PICTURE'],
-            preferByID: true
-        );
+        $products = $this->catalogService->findByIds(array_values($productIds));
 
         $sectionIds = [];
         foreach ($products as $product) {
@@ -106,12 +103,12 @@ final class CatalogCompareService
 
         $sections = [];
         if ($sectionIds) {
-            $sectionList = IblockManager::getSectionList(
+            $sectionList = $this->catalogService->getSections(
                 filter: ['ID' => array_values($sectionIds), 'ACTIVE' => 'Y'],
-                select: ['ID', 'NAME', 'CODE', 'SECTION_PAGE_URL'],
-                preferBy: 'ID'
+                limit: 0,
+                select: ['CODE', 'SECTION_PAGE_URL']
             );
-            $sections = $sectionList;
+            $sections = array_column($sectionList, null, 'ID');
         }
 
         foreach ($items as &$item) {
@@ -243,106 +240,24 @@ final class CatalogCompareService
 
     public function normalizeCompareIds(array $ids): array
     {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        $ids = CookieListStorage::normalizeIds($ids, PHP_INT_MAX);
         if (!$ids) {
             return [];
         }
 
-        $offersIblockId = IblockManager::getID('offers');
-        $catalogIblockId = IblockManager::getID('catalog');
-        if ($offersIblockId <= 0 || $catalogIblockId <= 0 || !Loader::includeModule('iblock')) {
-            return $ids;
-        }
+        $items = $this->loadProducts($ids) + $this->loadOffers($ids);
 
-        $offerIds = [];
-        $productIds = [];
-
-        $existingOffers = IblockManager::getList(
-            filter: ['IBLOCK_ID' => $offersIblockId, 'ID' => $ids, 'ACTIVE' => 'Y'],
-            select: ['ID'],
-            preferByID: true
-        );
-
-        foreach ($ids as $id) {
-            if (isset($existingOffers[$id])) {
-                $offerIds[$id] = $id;
-                continue;
-            }
-
-            $productIds[$id] = $id;
-        }
-
-        if ($productIds) {
-            $res = CIBlockElement::GetList(
-                ['SORT' => 'ASC', 'ID' => 'ASC'],
-                [
-                    'IBLOCK_ID' => $offersIblockId,
-                    'ACTIVE' => 'Y',
-                    'PROPERTY_CML2_LINK' => array_values($productIds),
-                    'PROPERTY_CML2_LINK.ACTIVE' => 'Y',
-                ],
-                false,
-                false,
-                ['ID', 'PROPERTY_CML2_LINK']
-            );
-
-            while ($offer = $res->GetNext()) {
-                $productId = (int)($offer['PROPERTY_CML2_LINK_VALUE'] ?? 0);
-                if ($productId > 0 && !isset($offerIds[$productId])) {
-                    $offerIds[$productId] = (int)$offer['ID'];
-                }
-            }
-        }
-
-        $normalized = [];
-        foreach ($ids as $id) {
-            if (isset($existingOffers[$id])) {
-                $normalized[] = $id;
-                continue;
-            }
-
-            if (isset($offerIds[$id])) {
-                $normalized[] = $offerIds[$id];
-            }
-        }
-
-        return array_values(array_unique($normalized));
+        return array_values(array_filter($ids, static fn(int $id): bool => isset($items[$id])));
     }
 
     private function loadOffers(array $ids): array
     {
-        $offersIblockId = IblockManager::getID('offers');
-        if ($offersIblockId <= 0) {
-            return [];
-        }
-
-        return IblockManager::getList(
-            filter: [
-                'IBLOCK_ID' => $offersIblockId,
-                'ID' => $ids,
-                'ACTIVE' => 'Y',
-            ],
-            select: ['ID', 'IBLOCK_SECTION_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE', 'DETAIL_PICTURE'],
-            preferByID: true
-        );
+        return $this->offersService->findByIds($ids);
     }
 
     private function loadProducts(array $ids): array
     {
-        $catalogIblockId = IblockManager::getID('catalog');
-        if ($catalogIblockId <= 0) {
-            return [];
-        }
-
-        return IblockManager::getList(
-            filter: [
-                'IBLOCK_ID' => $catalogIblockId,
-                'ID' => $ids,
-                'ACTIVE' => 'Y',
-            ],
-            select: ['ID', 'IBLOCK_SECTION_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE', 'DETAIL_PICTURE'],
-            preferByID: true
-        );
+        return $this->catalogService->findByIds($ids);
     }
 
     private function buildRows(array $items): array

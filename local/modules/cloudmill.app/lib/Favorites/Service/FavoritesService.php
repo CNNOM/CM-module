@@ -4,8 +4,7 @@ namespace CloudMill\App\Favorites\Service;
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\Type\DateTime;
-use Bitrix\Main\Web\Cookie;
-use CloudMill\App\Infrastructure\Bitrix\Context\ApplicationContext;
+use CloudMill\App\Infrastructure\Storage\CookieListStorage;
 use CloudMill\App\Infrastructure\Bitrix\Wrappers\IblockManager;
 use CloudMill\App\Infrastructure\Bitrix\Wrappers\HighloadBlockManager;
 
@@ -17,7 +16,7 @@ class FavoritesService
     private const HL_SHARE = 'FavoritesShare';
     private const SHARE_TTL = '+7 days';
 
-    private static ?array $items = null;
+    private static ?CookieListStorage $storage = null;
 
     public static function add(int $productId): array
     {
@@ -31,7 +30,7 @@ class FavoritesService
         }
 
         if (self::has($productId)) {
-            return self::remove($productId);
+            return ['success' => true, 'code' => 'EXISTS', 'count' => self::count()];
         }
 
         if (self::count() >= self::LIMIT) {
@@ -51,9 +50,7 @@ class FavoritesService
             ];
         }
 
-        $items = self::getItems();
-        $items[] = $productId;
-        self::saveItems($items);
+        self::storage()->add($productId);
 
         return [
             'success' => true,
@@ -67,12 +64,7 @@ class FavoritesService
     {
         $sectionId = self::getProductSectionId($productId);
 
-        $items = array_filter(
-            self::getItems(),
-            static fn (int $itemId): bool => $itemId !== $productId
-        );
-
-        self::saveItems($items);
+        self::storage()->remove($productId);
 
         return [
             'success' => true,
@@ -84,7 +76,7 @@ class FavoritesService
 
     public static function clear(): array
     {
-        self::saveItems([]);
+        self::storage()->clear();
 
         return [
             'success' => true,
@@ -173,7 +165,7 @@ class FavoritesService
 
         $record = HighloadBlockManager::getList(
             self::HL_SHARE,
-            ['filter' => ['UF_HASH' => $hash], 'limit' => 1]
+            ['filter' => ['UF_HASH' => $hash, '>UF_EXPIRED_DATE' => new DateTime()], 'limit' => 1]
         )[0] ?? null;
 
         if (!$record) {
@@ -182,14 +174,14 @@ class FavoritesService
 
         $items = json_decode((string)$record['UF_PRODUCTS'], true);
 
-        return self::normalizeItems(is_array($items) ? $items : []);
+        return CookieListStorage::normalizeIds(is_array($items) ? $items : [], self::LIMIT);
     }
 
     public static function removeExpiredShares(): int
     {
         $expired = HighloadBlockManager::getList(
             self::HL_SHARE,
-            ['select' => ['ID'], 'filter' => ['<UF_EXPIRED_DATE' => new DateTime()]]
+            ['select' => ['ID'], 'filter' => ['<=UF_EXPIRED_DATE' => new DateTime()]]
         );
 
         if (empty($expired)) {
@@ -214,21 +206,17 @@ class FavoritesService
 
     public static function has(int $productId): bool
     {
-        return in_array($productId, self::getItems(), true);
+        return self::storage()->has($productId);
     }
 
     public static function count(): int
     {
-        return count(self::getItems());
+        return self::storage()->count();
     }
 
     public static function getItems(): array
     {
-        if (self::$items !== null) {
-            return self::$items;
-        }
-
-        return self::$items = self::getCookieItems();
+        return self::storage()->get();
     }
 
     public static function getProducts(): array
@@ -323,50 +311,8 @@ class FavoritesService
         return $item ? (int)$item['IBLOCK_SECTION_ID'] : 0;
     }
 
-    private static function getCookieItems(bool $normalize = true): array
+    private static function storage(): CookieListStorage
     {
-        $cookie = ApplicationContext::getRequest()->getCookie(self::COOKIE_NAME);
-
-        if (!is_string($cookie) || $cookie === '') {
-            return [];
-        }
-
-        $items = json_decode($cookie, true);
-
-        if (!is_array($items)) {
-            return [];
-        }
-        if ($normalize) {
-            return self::normalizeItems($items);
-        }
-        return $items;
-    }
-
-    private static function saveItems(array $items): void
-    {
-        self::$items = self::normalizeItems($items);
-
-        $cookie = new Cookie(
-            self::COOKIE_NAME,
-            json_encode(self::$items, JSON_UNESCAPED_UNICODE),
-            time() + self::COOKIE_TTL
-        );
-        $cookie->setPath('/');
-
-        ApplicationContext::getResponse()->addCookie($cookie);
-
-        $_COOKIE[self::COOKIE_NAME] = json_encode(self::$items, JSON_UNESCAPED_UNICODE);
-    }
-
-    private static function normalizeItems(array $items): array
-    {
-        $items = array_map('intval', $items);
-        $items = array_filter(
-            $items,
-            static fn (int $productId): bool => $productId > 0
-        );
-        $items = array_values(array_unique($items));
-
-        return array_slice($items, 0, self::LIMIT);
+        return self::$storage ??= new CookieListStorage(self::COOKIE_NAME, self::COOKIE_TTL, self::LIMIT);
     }
 }

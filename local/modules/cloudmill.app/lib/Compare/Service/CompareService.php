@@ -4,9 +4,8 @@ declare(strict_types=1);
 namespace CloudMill\App\Compare\Service;
 
 use Bitrix\Main\Type\DateTime;
-use Bitrix\Main\Web\Cookie;
 use CFile;
-use CloudMill\App\Infrastructure\Bitrix\Context\ApplicationContext;
+use CloudMill\App\Infrastructure\Storage\CookieListStorage;
 use CloudMill\App\Infrastructure\Bitrix\Wrappers\IblockManager;
 use CloudMill\App\Infrastructure\Bitrix\Wrappers\HighloadBlockManager;
 
@@ -19,25 +18,21 @@ final class CompareService
     private const HL_SHARE = 'CompareShare';
     private const SHARE_TTL = '+7 days';
 
-    private static ?array $items = null;
+    private static ?CookieListStorage $storage = null;
 
     public static function getItems(): array
     {
-        if (self::$items === null) {
-            self::$items = self::readCookie();
-        }
-
-        return self::$items;
+        return self::storage()->get();
     }
 
     public static function has(int $id): bool
     {
-        return in_array($id, self::getItems(), true);
+        return self::storage()->has($id);
     }
 
     public static function count(): int
     {
-        return count(self::getItems());
+        return self::storage()->count();
     }
 
     public static function add(int $id): array
@@ -47,36 +42,38 @@ final class CompareService
         }
 
         if (self::has($id)) {
-            return self::remove($id);
+            return ['success' => true, 'code' => 'EXISTS', 'count' => self::count()];
         }
 
         if (self::count() >= self::LIMIT) {
             return ['success' => false, 'code' => 'LIMIT', 'count' => self::count()];
         }
 
-        $items = self::getItems();
-        $items[] = $id;
-        self::saveItems($items);
+        $product = self::getProductData($id);
+        if (!$product) {
+            return ['success' => false, 'code' => 'NOT_FOUND', 'count' => self::count()];
+        }
+
+        self::storage()->add($id);
 
         return [
             'success' => true,
             'code' => 'ADDED',
             'count' => self::count(),
-            'product' => self::getProductData($id),
+            'product' => $product,
         ];
     }
 
     public static function remove(int $id): array
     {
-        $items = array_values(array_diff(self::getItems(), [$id]));
-        self::saveItems($items);
+        self::storage()->remove($id);
 
         return ['success' => true, 'code' => 'REMOVED', 'count' => self::count()];
     }
 
     public static function clear(): array
     {
-        self::saveItems([]);
+        self::storage()->clear();
 
         return ['success' => true, 'code' => 'CLEARED', 'count' => 0];
     }
@@ -161,7 +158,7 @@ final class CompareService
 
         $record = HighloadBlockManager::getList(
             self::HL_SHARE,
-            ['filter' => ['UF_HASH' => $hash], 'limit' => 1]
+            ['filter' => ['UF_HASH' => $hash, '>UF_EXPIRED_DATE' => new DateTime()], 'limit' => 1]
         )[0] ?? null;
 
         if (!$record) {
@@ -170,14 +167,14 @@ final class CompareService
 
         $items = json_decode((string)$record['UF_PRODUCTS'], true);
 
-        return self::normalize(is_array($items) ? $items : []);
+        return CookieListStorage::normalizeIds(is_array($items) ? $items : [], self::LIMIT);
     }
 
     public static function removeExpiredShares(): int
     {
         $expired = HighloadBlockManager::getList(
             self::HL_SHARE,
-            ['select' => ['ID'], 'filter' => ['<UF_EXPIRED_DATE' => new DateTime()]]
+            ['select' => ['ID'], 'filter' => ['<=UF_EXPIRED_DATE' => new DateTime()]]
         );
 
         if (empty($expired)) {
@@ -202,9 +199,14 @@ final class CompareService
 
     private static function getProductData(int $id): array
     {
+        $iblockId = IblockManager::getID('catalog');
+        if ($iblockId <= 0) {
+            return [];
+        }
+
         $items = IblockManager::getList(
             filter: [
-                'IBLOCK_ID' => IblockManager::getID('catalog'),
+                'IBLOCK_ID' => $iblockId,
                 'ID' => $id,
                 'ACTIVE' => 'Y',
             ],
@@ -226,40 +228,8 @@ final class CompareService
         ];
     }
 
-    private static function readCookie(): array
+    private static function storage(): CookieListStorage
     {
-        $raw = (string)ApplicationContext::getRequest()->getCookie(self::COOKIE_NAME);
-        if ($raw === '') {
-            return [];
-        }
-
-        $decoded = json_decode($raw, true);
-
-        return is_array($decoded) ? self::normalize($decoded) : [];
-    }
-
-    private static function saveItems(array $items): void
-    {
-        self::$items = self::normalize($items);
-
-        $cookie = new Cookie(
-            self::COOKIE_NAME,
-            json_encode(self::$items, JSON_UNESCAPED_UNICODE) ?: '[]',
-            time() + self::COOKIE_TTL
-        );
-        $cookie->setPath('/');
-        $cookie->setHttpOnly(false);
-
-        ApplicationContext::getResponse()->addCookie($cookie);
-    }
-
-    private static function normalize(array $items): array
-    {
-        $items = array_values(array_unique(array_filter(
-            array_map('intval', $items),
-            static fn (int $id): bool => $id > 0
-        )));
-
-        return array_slice($items, 0, self::LIMIT);
+        return self::$storage ??= new CookieListStorage(self::COOKIE_NAME, self::COOKIE_TTL, self::LIMIT);
     }
 }
