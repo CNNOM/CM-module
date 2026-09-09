@@ -47,12 +47,6 @@ final class ApplicationContext
         return true;
     }
 
-    public static function getCookieItems($cookieName)
-    {
-        $cookie = ApplicationContext::getRequest()->getCookieRaw($cookieName);
-        return $cookie ? json_decode($cookie) : [];
-    }
-
     public static function getDB(): Connection|\Bitrix\Main\DB\Connection
     {
         return Application::getConnection();

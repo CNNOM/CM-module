@@ -14,6 +14,7 @@ final class CookieListStorage
         private readonly string $cookieName,
         private readonly int $ttl,
         private readonly int $limit,
+        private readonly bool $httpOnly = false,
     ) {
         $raw = (string)ApplicationContext::getRequest()->getCookie($cookieName);
         $items = json_decode($raw, true);
@@ -54,6 +55,17 @@ final class CookieListStorage
         $this->save();
     }
 
+    /** Перемещает ID в начало, удаляя элементы за пределами лимита. */
+    public function prepend(int $id): void
+    {
+        if ($id <= 0 || $this->limit <= 0) {
+            return;
+        }
+
+        $this->items = self::normalizeIds([$id, ...$this->items], $this->limit);
+        $this->save();
+    }
+
     public function clear(): void
     {
         $this->items = [];
@@ -73,7 +85,7 @@ final class CookieListStorage
     {
         $cookie = new Cookie($this->cookieName, json_encode($this->items), time() + $this->ttl);
         $cookie->setPath('/');
-        $cookie->setHttpOnly(false);
+        $cookie->setHttpOnly($this->httpOnly);
         ApplicationContext::getResponse()->addCookie($cookie);
     }
 }
