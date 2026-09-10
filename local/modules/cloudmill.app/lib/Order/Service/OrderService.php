@@ -6,13 +6,11 @@ namespace CloudMill\App\Order\Service;
 
 use Bitrix\Main\Loader;
 use Bitrix\Sale\Order;
-use Bitrix\Sale\PaySystem;
 use CloudMill\App\Order\Dto\OrderDataDto;
 use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use CloudMill\App\Catalog\Service\WarehouseStockService;
 use CloudMill\App\Order\Validator\OrderValidator;
 use RuntimeException;
-use CEvent;
 
 final class OrderService
 {
@@ -47,8 +45,8 @@ final class OrderService
 
         self::setProperties($order, $data);
         self::setComment($order, $data);
-        self::setDelivery($order, $data);
-        self::setPayment($order);
+        OrderDeliveryService::apply($order, $data);
+        OrderPaymentService::apply($order);
 
         $stockChanges = WarehouseStockService::decreaseForBasket($basket);
 
@@ -70,7 +68,7 @@ final class OrderService
 
         // Уведомление не должно отменять успешное оформление заказа.
         try {
-            self::sendOrderEmail($order, $data);
+            OrderNotificationService::send($order, $data);
         } catch (\Throwable $exception) {
             \CEventLog::Add([
                 'SEVERITY' => 'ERROR',
@@ -147,118 +145,4 @@ final class OrderService
         }
     }
 
-    private static function setDelivery(Order $order, OrderDataDto $data): void
-    {
-        $deliveryId = $data->deliveryId;
-        $availableDeliveries = DeliveryService::getAvailableServices();
-
-        if (!$deliveryId && $availableDeliveries) {
-            $deliveryId = (int)$availableDeliveries[0]['ID'];
-        }
-
-        if (!$deliveryId) {
-            return;
-        }
-
-        $allowedIds = array_map(static fn(array $delivery): int => (int)$delivery['ID'], $availableDeliveries);
-        if (!in_array($deliveryId, $allowedIds, true)) {
-            throw new RuntimeException('Выбранный способ доставки недоступен');
-        }
-
-        $shipment = $order->getShipmentCollection()->createItem();
-        $shipment->setFields([
-            'DELIVERY_ID' => $deliveryId,
-            'CURRENCY' => $order->getCurrency(),
-        ]);
-
-        foreach ($order->getBasket() as $basketItem) {
-            $shipmentItem = $shipment->getShipmentItemCollection()->createItem($basketItem);
-            $shipmentItem->setQuantity($basketItem->getQuantity());
-        }
-    }
-
-    private static function setPayment(Order $order): void
-    {
-        $paySystem = PaySystem\Manager::getList([
-            'filter' => ['ACTIVE' => 'Y'],
-            'order' => ['SORT' => 'ASC', 'ID' => 'ASC'],
-            'limit' => 1,
-        ])->fetch();
-
-        if (!$paySystem) {
-            return;
-        }
-
-        $service = PaySystem\Manager::getObjectById((int)$paySystem['ID']);
-        if (!$service) {
-            return;
-        }
-
-        $payment = $order->getPaymentCollection()->createItem($service);
-        $payment->setField('SUM', $order->getPrice());
-        $payment->setField('CURRENCY', $order->getCurrency());
-    }
-
-    private static function sendOrderEmail(Order $order, OrderDataDto $data): void
-    {
-        $email = $data->email();
-
-        if ($email === '') {
-            return;
-        }
-
-        $basketItems = [];
-        foreach ($order->getBasket() as $basketItem) {
-            $basketItems[] = sprintf(
-                '%s — %s шт. × %s %s',
-                (string)$basketItem->getField('NAME'),
-                (float)$basketItem->getQuantity(),
-                (float)$basketItem->getPrice(),
-                (string)$basketItem->getCurrency()
-            );
-        }
-
-        CEvent::Send(
-            'CREATE_ORDER',
-            SITE_ID,
-            [
-                'EMAIL_TO' => $email,
-                'EMAIL' => $email,
-                'ORDER_ID' => (int)$order->getId(),
-                'CUSTOMER_NAME' => $data->customerName(),
-                'PHONE' => $data->phone(),
-                'CUSTOMER_TYPE' => $data->isLegal() ? 'Юридическое лицо' : 'Физическое лицо',
-                'COMPANY_NAME' => $data->companyName,
-                'ORDER_PRICE' => (float)$order->getPrice(),
-                'CURRENCY' => (string)$order->getCurrency(),
-                'DATE_SHIPMENT' => $data->shippingDate,
-                'COMMENT' => $data->comment,
-                'ORDER_ITEMS' => implode('<br>', $basketItems),
-            ],
-            'Y',
-            '',
-            ['CONTENT_TYPE' => 'text/html']
-        );
-
-        CEvent::Send(
-            'NEW_ORDER_MANAGER',
-            SITE_ID,
-            [
-                'EMAIL' => $email,
-                'ORDER_ID' => (int)$order->getId(),
-                'CUSTOMER_NAME' => $data->customerName(),
-                'PHONE' => $data->phone(),
-                'CUSTOMER_TYPE' => $data->isLegal() ? 'Юридическое лицо' : 'Физическое лицо',
-                'COMPANY_NAME' => $data->companyName,
-                'ORDER_PRICE' => (float)$order->getPrice(),
-                'CURRENCY' => (string)$order->getCurrency(),
-                'DATE_SHIPMENT' => $data->shippingDate,
-                'COMMENT' => $data->comment,
-                'ORDER_ITEMS' => implode('<br>', $basketItems),
-            ],
-            'Y',
-            '',
-            []
-        );
-    }
 }

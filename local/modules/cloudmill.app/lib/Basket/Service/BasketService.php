@@ -65,6 +65,8 @@ final class BasketService
             }
         }
 
+        $availabilityByProduct = StockService::getAvailabilityByIds($ids);
+
         $items = [];
         foreach ($this->basket as $item) {
             $productId = (int)$item->getProductId();
@@ -72,7 +74,7 @@ final class BasketService
             $pictureId = (int)(($product['PREVIEW_PICTURE'] ?? 0) ?: ($product['DETAIL_PICTURE'] ?? 0));
             $sectionId = (int)($product['IBLOCK_SECTION_ID'] ?? 0);
             $section = $sections[$sectionId] ?? [];
-            $availability = StockService::getAvailability($productId);
+            $availability = $availabilityByProduct[$productId] ?? StockService::getAvailability($productId);
 
             $items[] = [
                 'id' => (int)$item->getId(),
@@ -116,7 +118,18 @@ final class BasketService
         $basket = $this->basket;
         $item = $basket->getExistsItem('catalog', $productId);
         $availability = StockService::getAvailability($productId);
-        $quantity = StockService::limitQuantity($quantity + ($item ? (float)$item->getQuantity() : 0), $availability);
+        $requestedQuantity = $quantity + ($item ? (float)$item->getQuantity() : 0);
+        $quantity = StockService::limitQuantity($requestedQuantity, $availability);
+
+        if ($quantity < $requestedQuantity) {
+            return [
+                'success' => false,
+                'code' => 'QUANTITY_LIMITED',
+                'requestedQuantity' => $requestedQuantity,
+                'availableQuantity' => $quantity,
+                'items' => $this->getItems(),
+            ];
+        }
 
         if ($quantity <= 0) {
             throw new RuntimeException('Товар отсутствует в наличии');
@@ -158,7 +171,17 @@ final class BasketService
         $item = $this->basket->getExistsItem('catalog', $productId);
 
         if ($item) {
-            $quantity = StockService::limitQuantity($quantity, StockService::getAvailability((int)$item->getProductId()));
+            $availableQuantity = StockService::limitQuantity($quantity, StockService::getAvailability((int)$item->getProductId()));
+            if ($availableQuantity < $quantity) {
+                return [
+                    'success' => false,
+                    'code' => 'QUANTITY_LIMITED',
+                    'requestedQuantity' => $quantity,
+                    'availableQuantity' => $availableQuantity,
+                    'items' => $this->getItems(),
+                ];
+            }
+            $quantity = $availableQuantity;
             $this->checkResult($quantity > 0 ? $item->setField('QUANTITY', $quantity) : $item->delete());
             $this->save();
         }

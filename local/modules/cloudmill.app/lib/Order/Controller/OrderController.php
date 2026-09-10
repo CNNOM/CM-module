@@ -24,13 +24,13 @@ final class OrderController extends Controller
         ];
     }
 
-    public function createOrderAction(array $inputs = []): array
+    public function createOrderAction(array $inputs = []): ?array
     {
         try {
             return ['orderId' => OrderService::create($inputs)];
         } catch (Throwable $exception) {
             $this->addError(new Error($exception->getMessage()));
-            return [];
+            return null;
         }
     }
 }

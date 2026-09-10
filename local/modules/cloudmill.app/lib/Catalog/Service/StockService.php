@@ -24,10 +24,36 @@ final class StockService
     /** Получает количество товара и остатки по складам. */
     public static function getAvailability(int $productId): array
     {
-        return array_merge(
-            WarehouseStockService::getAvailability($productId),
-            ['productQuantity' => self::getQuantity($productId)]
-        );
+        return self::getAvailabilityByIds([$productId])[$productId] ?? [
+            'hasWarehouse' => false,
+            'warehouseQuantity' => 0.0,
+            'productQuantity' => 0.0,
+        ];
+    }
+
+    /** Получает наличие всех переданных товаров пакетно. */
+    public static function getAvailabilityByIds(array $productIds): array
+    {
+        self::loadCatalog();
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), static fn(int $id): bool => $id > 0)));
+        $availability = WarehouseStockService::getAvailabilityByIds($productIds);
+
+        if (!$productIds) {
+            return $availability;
+        }
+
+        $products = \CCatalogProduct::GetList([], ['ID' => $productIds], false, false, ['ID', 'QUANTITY']);
+        while ($product = $products->Fetch()) {
+            $productId = (int)$product['ID'];
+            $availability[$productId]['productQuantity'] = (float)$product['QUANTITY'];
+        }
+
+        foreach ($availability as $productId => &$item) {
+            $item['productQuantity'] ??= 0.0;
+        }
+        unset($item);
+
+        return $availability;
     }
 
     /** Ограничивает количество товара доступным остатком. */

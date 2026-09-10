@@ -57,6 +57,7 @@ final class OrderValidator
                 'companyContactName' => $data->companyContactName,
                 'companyPhone' => $data->companyPhone,
                 'companyName' => $data->companyName,
+                'companyInn' => $data->companyInn,
             ]
             : [
                 'personName' => $data->personName,
@@ -90,6 +91,28 @@ final class OrderValidator
         $phone = preg_replace('/\D+/', '', $data->phone());
         if ($data->phone() !== '' && ($phone === null || !preg_match('/^(?:7|8)\d{10}$/', $phone))) {
             $result->addError(new ValidationError('Некорректный номер телефона'));
+        }
+
+        if ($data->isLegal()) {
+            $this->validateCompanyInn($data->companyInn, $result);
+        }
+    }
+
+    private function validateCompanyInn(string $inn, ValidationResult $result): void
+    {
+        if (!preg_match('/^\d{10}$/', $inn)) {
+            $result->addError(new ValidationError('ИНН организации должен содержать 10 цифр'));
+            return;
+        }
+
+        $weights = [2, 4, 10, 3, 5, 9, 4, 6, 8];
+        $sum = 0;
+        foreach ($weights as $index => $weight) {
+            $sum += (int)$inn[$index] * $weight;
+        }
+
+        if (($sum % 11) % 10 !== (int)$inn[9]) {
+            $result->addError(new ValidationError('Некорректный ИНН организации'));
         }
     }
 

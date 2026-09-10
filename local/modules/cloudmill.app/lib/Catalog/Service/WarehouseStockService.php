@@ -12,20 +12,45 @@ final class WarehouseStockService
     /** Получает суммарный остаток товара по складам. */
     public static function getAvailability(int $productId): array
     {
-        self::loadCatalog();
-        $hasWarehouse = false;
-        $warehouseQuantity = 0.0;
-        $storeProducts = \CCatalogStoreProduct::GetList([], ['PRODUCT_ID' => $productId], false, false, ['ID', 'STORE_ID', 'AMOUNT']);
+        return self::getAvailabilityByIds([$productId])[$productId] ?? [
+            'hasWarehouse' => false,
+            'warehouseQuantity' => 0.0,
+        ];
+    }
 
-        while ($storeProduct = $storeProducts->Fetch()) {
-            $hasWarehouse = true;
-            $amount = (float)$storeProduct['AMOUNT'];
-            if ($amount > 0) {
-                $warehouseQuantity += $amount;
-            }
+    /** Получает остатки всех переданных товаров одним запросом к складам. */
+    public static function getAvailabilityByIds(array $productIds): array
+    {
+        self::loadCatalog();
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), static fn(int $id): bool => $id > 0)));
+        $availability = array_fill_keys($productIds, [
+            'hasWarehouse' => false,
+            'warehouseQuantity' => 0.0,
+        ]);
+
+        if (!$productIds) {
+            return $availability;
         }
 
-        return ['hasWarehouse' => $hasWarehouse, 'warehouseQuantity' => $warehouseQuantity];
+        $storeProducts = \CCatalogStoreProduct::GetList(
+            [],
+            ['PRODUCT_ID' => $productIds],
+            false,
+            false,
+            ['PRODUCT_ID', 'AMOUNT']
+        );
+
+        while ($storeProduct = $storeProducts->Fetch()) {
+            $productId = (int)$storeProduct['PRODUCT_ID'];
+            if (!isset($availability[$productId])) {
+                continue;
+            }
+
+            $availability[$productId]['hasWarehouse'] = true;
+            $availability[$productId]['warehouseQuantity'] += max(0, (float)$storeProduct['AMOUNT']);
+        }
+
+        return $availability;
     }
 
     /** Списывает товары корзины со складов. */

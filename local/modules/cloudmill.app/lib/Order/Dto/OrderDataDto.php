@@ -20,6 +20,7 @@ final class OrderDataDto
         public readonly string $companyEmail = '',
         #[Required('Укажите название организации')]
         public readonly string $companyName = '',
+        #[Required('Укажите ИНН организации')]
         public readonly string $companyInn = '',
         public readonly string $address = '',
         public readonly string $shippingDate = '',
