@@ -8,7 +8,7 @@ use Bitrix\Main\Loader;
 use Bitrix\Sale\Order;
 use Bitrix\Sale\PaySystem;
 use CloudMill\App\Order\Dto\OrderDataDto;
-use CloudMill\App\Basket\Service\ServiceProvider;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use CloudMill\App\Catalog\Service\WarehouseStockService;
 use CloudMill\App\Order\Validator\OrderValidator;
 use RuntimeException;

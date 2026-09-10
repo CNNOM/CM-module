@@ -7,8 +7,7 @@ use Attribute;
 use Bitrix\Main\Validation\Rule\PropertyValidationAttributeInterface;
 use Bitrix\Main\Validation\ValidationResult;
 use Bitrix\Main\Validation\ValidationError;
-use Bitrix\Main\Validation\ValidationService;
-use Bitrix\Main\DI\ServiceLocator;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use CloudMill\App\Auth\Dto\PhoneDto;
 use CloudMill\App\Auth\Dto\EmailDto;
 
@@ -41,7 +40,7 @@ class UserLogin implements PropertyValidationAttributeInterface
             return $result;
         }
 
-        $validator = ServiceLocator::getInstance()->get('main.validation.service');
+        $validator = ServiceProvider::ValidationService();
 
         switch ($this->type) {
             case 'PHONE':

@@ -18,9 +18,9 @@ final class WarehouseStockService
         $storeProducts = \CCatalogStoreProduct::GetList([], ['PRODUCT_ID' => $productId], false, false, ['ID', 'STORE_ID', 'AMOUNT']);
 
         while ($storeProduct = $storeProducts->Fetch()) {
+            $hasWarehouse = true;
             $amount = (float)$storeProduct['AMOUNT'];
             if ($amount > 0) {
-                $hasWarehouse = true;
                 $warehouseQuantity += $amount;
             }
         }

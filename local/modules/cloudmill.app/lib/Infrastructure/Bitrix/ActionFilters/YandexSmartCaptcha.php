@@ -7,7 +7,7 @@ use Bitrix\Main\Engine\ActionFilter\Base;
 use Bitrix\Main\Error;
 use Bitrix\Main\Event;
 use Bitrix\Main\EventResult;
-use CloudMill\App\Basket\Service\ServiceProvider;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use CloudMill\App\Integrations\Yandex\SmartCaptchaClient;
 
 class YandexSmartCaptcha extends Base

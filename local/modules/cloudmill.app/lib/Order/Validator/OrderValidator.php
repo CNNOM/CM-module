@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace CloudMill\App\Order\Validator;
 
-use Bitrix\Main\DI\ServiceLocator;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use Bitrix\Main\Validation\ValidationResult;
 use Bitrix\Main\Validation\ValidationError;
 use CloudMill\App\Auth\Dto\EmailDto;
@@ -78,7 +78,7 @@ final class OrderValidator
 
     private function validateOptionalContacts(OrderDataDto $data, ValidationResult $result): void
     {
-        $validator = ServiceLocator::getInstance()->get('main.validation.service');
+        $validator = ServiceProvider::ValidationService();
 
         if ($data->email() !== '') {
             $validation = $validator->validate(new EmailDto($data->email()));

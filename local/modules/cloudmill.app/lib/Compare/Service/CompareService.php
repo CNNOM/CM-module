@@ -3,9 +3,8 @@ declare(strict_types=1);
 
 namespace CloudMill\App\Compare\Service;
 
-use Bitrix\Main\DI\ServiceLocator;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use CFile;
-use CloudMill\App\Catalog\Service\CatalogService;
 use CloudMill\App\Catalog\Service\Abstract\AbstractProductListService;
 
 final class CompareService extends AbstractProductListService
@@ -17,7 +16,7 @@ final class CompareService extends AbstractProductListService
 
     protected static function getProductData(int $productId): array
     {
-        $catalogService = ServiceLocator::getInstance()->get(CatalogService::class);
+        $catalogService = ServiceProvider::CatalogService();
         $item = $catalogService->findByIds([$productId])[$productId] ?? null;
         if (!$item) {
             return [];

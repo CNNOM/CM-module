@@ -1,10 +1,13 @@
 <?php
 declare(strict_types=1);
 
-namespace CloudMill\App\Basket\Service;
+namespace CloudMill\App\Infrastructure\Bitrix\DI;
 
+use CloudMill\App\Basket\Service\BasketService;
+use CloudMill\App\Catalog\Service\CatalogService;
 use Bitrix\Main\DI\ServiceLocator;
 use Bitrix\Main\ObjectNotFoundException;
+use Bitrix\Main\Validation\ValidationService;
 use Bitrix\Sale\Basket;
 use CloudMill\App\Infrastructure\Logging\ExceptionHandler;
 use CloudMill\App\Integrations\Yandex\SmartCaptchaClient;
@@ -36,7 +39,18 @@ final class ServiceProvider implements ContainerInterface
 
     public static function BasketService(): ?BasketService
     {
-        return self::getInstance()->get(\CloudMill\App\Basket\Service\BasketService::class);
+        return self::getInstance()->get(BasketService::class);
+    }
+
+    public static function CatalogService(): CatalogService
+    {
+        // Bitrix автоматически создаёт класс и его зависимости без регистрации.
+        return ServiceLocator::getInstance()->get(CatalogService::class);
+    }
+
+    public static function ValidationService(): ValidationService
+    {
+        return ServiceLocator::getInstance()->get('main.validation.service');
     }
 
     /**
@@ -64,6 +78,6 @@ final class ServiceProvider implements ContainerInterface
     public function has(string $id): bool
     {
         $locator = ServiceLocator::getInstance();
-        return $locator->has($id);
+        return $locator->has(self::MODULE_PREFIX . $id);
     }
 }

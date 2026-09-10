@@ -5,7 +5,7 @@ namespace CloudMill\App\Integrations\Yandex;
 
 use Bitrix\Main\Page\Asset;
 use Bitrix\Main\Page\AssetLocation;
-use CloudMill\App\Basket\Service\ServiceProvider;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 
 final class SmartCaptchaAssetManager
 {

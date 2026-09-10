@@ -3,9 +3,8 @@ declare(strict_types = 1);
 
 namespace CloudMill\App\Auth\Validator;
 
-use Bitrix\Main\DI\ServiceLocator;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use Bitrix\Main\Result;
-use Bitrix\Main\Validation\ValidationService;
 use CloudMill\App\Auth\Dto\UserPhizDto;
 use CloudMill\App\Auth\Dto\UserYurDto;
 use Bitrix\Main\Error;
@@ -16,7 +15,7 @@ class UserValidator
     {
         $result = new Result();
 
-        $validator = ServiceLocator::getInstance()->get('main.validation.service');
+        $validator = ServiceProvider::ValidationService();
 
         if ($type == 'yur') {
             $userObject = new UserYurDto(

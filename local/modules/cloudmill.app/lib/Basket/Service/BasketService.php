@@ -5,6 +5,8 @@ namespace CloudMill\App\Basket\Service;
 
 use Bitrix\Currency\CurrencyManager;
 use Bitrix\Main\Loader;
+use Bitrix\Main\Result;
+use CloudMill\App\Catalog\Service\StockService;
 use Bitrix\Sale\Basket;
 use Bitrix\Sale\Fuser;
 use RuntimeException;
@@ -28,7 +30,9 @@ final class BasketService
 
     public function refresh(): array
     {
-        Loader::includeModule('sale');
+        if (!Loader::includeModule('sale')) {
+            throw new RuntimeException('Не удалось подключить модуль sale');
+        }
 
         $this->basket = Basket::loadItemsForFUser(Fuser::getId(), SITE_ID);
 
@@ -37,16 +41,37 @@ final class BasketService
 
     public function getItems(): array
     {
-        $items = [];
+        $ids = array_values(array_unique($this->getProductIds()));
+        if (!$ids) {
+            return [];
+        }
+        if (!Loader::includeModule('iblock')) {
+            throw new RuntimeException('Не удалось подключить модуль iblock');
+        }
 
+        $products = [];
+        $result = \CIBlockElement::GetList([], ['ID' => $ids], false, false,
+            ['ID', 'IBLOCK_SECTION_ID', 'PREVIEW_PICTURE', 'DETAIL_PICTURE']);
+        while ($product = $result->Fetch()) {
+            $products[(int)$product['ID']] = $product;
+        }
+
+        $sections = [];
+        $sectionIds = array_values(array_unique(array_filter(array_column($products, 'IBLOCK_SECTION_ID'))));
+        if ($sectionIds) {
+            $result = \CIBlockSection::GetList([], ['ID' => $sectionIds], false, ['ID', 'NAME']);
+            while ($section = $result->Fetch()) {
+                $sections[(int)$section['ID']] = $section;
+            }
+        }
+
+        $items = [];
         foreach ($this->basket as $item) {
             $productId = (int)$item->getProductId();
-            $product = \CIBlockElement::GetList([], ['ID' => $productId], false, false, ['ID', 'IBLOCK_SECTION_ID', 'PREVIEW_PICTURE', 'DETAIL_PICTURE'])->Fetch() ?: [];
-            $pictureId = $product['PREVIEW_PICTURE'] ?: ($product['DETAIL_PICTURE'] ?? null);
+            $product = $products[$productId] ?? [];
+            $pictureId = (int)(($product['PREVIEW_PICTURE'] ?? 0) ?: ($product['DETAIL_PICTURE'] ?? 0));
             $sectionId = (int)($product['IBLOCK_SECTION_ID'] ?? 0);
-            $section = $sectionId
-                ? \CIBlockSection::GetList([], ['ID' => $sectionId], false, ['ID', 'NAME'])->Fetch()
-                : null;
+            $section = $sections[$sectionId] ?? [];
             $availability = StockService::getAvailability($productId);
 
             $items[] = [
@@ -83,34 +108,33 @@ final class BasketService
 
     public function add(int $productId, float $quantity = 1): array
     {
+        $this->validateInput($productId, $quantity);
+        if ($quantity <= 0) {
+            throw new RuntimeException('Количество для добавления должно быть больше нуля');
+        }
+
         $basket = $this->basket;
         $item = $basket->getExistsItem('catalog', $productId);
         $availability = StockService::getAvailability($productId);
+        $quantity = StockService::limitQuantity($quantity + ($item ? (float)$item->getQuantity() : 0), $availability);
 
-        if ($item) {
-            $limitedQuantity = StockService::limitQuantity((float)$item->getQuantity(), $availability);
-            if ($limitedQuantity !== (float)$item->getQuantity()) {
-                $limitedQuantity > 0
-                    ? $item->setField('QUANTITY', $limitedQuantity)
-                    : $item->delete();
-                $this->save();
-            }
-
-            return $this->refresh();
+        if ($quantity <= 0) {
+            throw new RuntimeException('Товар отсутствует в наличии');
         }
 
-        $quantity = StockService::limitQuantity($quantity, $availability);
-        if ($quantity <= 0) {
+        if ($item) {
+            $this->checkResult($item->setField('QUANTITY', $quantity));
+            $this->save();
             return $this->refresh();
         }
 
         $item = $basket->createItem('catalog', $productId);
-        $item->setFields([
+        $this->checkResult($item->setFields([
             'QUANTITY' => $quantity,
             'CURRENCY' => CurrencyManager::getBaseCurrency(),
             'LID' => SITE_ID,
             'PRODUCT_PROVIDER_CLASS' => \CCatalogProductProvider::class,
-        ]);
+        ]));
         $this->save();
 
         return $this->refresh();
@@ -118,33 +142,24 @@ final class BasketService
 
     public function remove(int $productId): array
     {
-        $basket = $this->basket;
-        foreach ($basket as $item) {
-            if ((int)$item->getProductId() === $productId) {
-                $item->delete();
-                break;
-            }
+        $this->validateInput($productId);
+        $item = $this->basket->getExistsItem('catalog', $productId);
+        if ($item) {
+            $this->checkResult($item->delete());
+            $this->save();
         }
-        $this->save();
 
         return $this->refresh();
     }
 
     public function update(int $productId, float $quantity): array
     {
-        $basket = $this->basket;
-        $item = null;
-
-        foreach ($basket as $basketItem) {
-            if ((int)$basketItem->getProductId() === $productId) {
-                $item = $basketItem;
-                break;
-            }
-        }
+        $this->validateInput($productId, $quantity);
+        $item = $this->basket->getExistsItem('catalog', $productId);
 
         if ($item) {
             $quantity = StockService::limitQuantity($quantity, StockService::getAvailability((int)$item->getProductId()));
-            $quantity > 0 ? $item->setField('QUANTITY', $quantity) : $item->delete();
+            $this->checkResult($quantity > 0 ? $item->setField('QUANTITY', $quantity) : $item->delete());
             $this->save();
         }
 
@@ -153,8 +168,18 @@ final class BasketService
 
     private function save(): void
     {
-        $result = $this->basket->save();
+        $this->checkResult($this->basket->save());
+    }
 
+    private function validateInput(int $productId, float $quantity = 0): void
+    {
+        if ($productId <= 0 || !is_finite($quantity) || $quantity < 0) {
+            throw new RuntimeException('Некорректный товар или количество');
+        }
+    }
+
+    private function checkResult(Result $result): void
+    {
         if (!$result->isSuccess()) {
             throw new RuntimeException(implode('; ', $result->getErrorMessages()));
         }

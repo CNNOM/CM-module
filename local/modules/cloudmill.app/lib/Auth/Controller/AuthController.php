@@ -5,7 +5,7 @@ namespace CloudMill\App\Auth\Controller;
 
 use Bitrix\Main\Engine\ActionFilter;
 use Bitrix\Main\Engine\Controller;
-use Bitrix\Main\DI\ServiceLocator;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use Bitrix\Main\Error;
 use CloudMill\App\Auth\Service\AuthenticationService;
 use CloudMill\App\Auth\Service\RegistrationService;
@@ -32,7 +32,7 @@ final class AuthController extends Controller
             return null;
         }
 
-        $validator = ServiceLocator::getInstance()->get('main.validation.service');
+        $validator = ServiceProvider::ValidationService();
 
         $loginDto = new LoginDto($inputs['login']);
         $validationResult = $validator->validate($loginDto);
@@ -68,7 +68,7 @@ final class AuthController extends Controller
         $isYur = isset($inputs['INN']) && isset($inputs['companyName']);
         $userType = $isYur ? 'yur' : 'phiz';
 
-        $validator = ServiceLocator::getInstance()->get('main.validation.service');
+        $validator = ServiceProvider::ValidationService();
 
         if ($isYur) {
             $dto = new UserYurDto(

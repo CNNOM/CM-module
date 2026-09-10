@@ -36,8 +36,8 @@ final class StockService
         $quantity = max(0, $quantity);
 
         return $availability['hasWarehouse']
-            ? min($quantity, (float)$availability['warehouseQuantity'])
-            : min($quantity, 100);
+            ? min($quantity, max(0, (float)$availability['warehouseQuantity']))
+            : min($quantity, max(0, (float)$availability['productQuantity']), 100);
     }
 
     private static function loadCatalog(): void

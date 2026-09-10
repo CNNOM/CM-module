@@ -7,7 +7,7 @@ use Bitrix\Main\Engine\ActionFilter;
 use Bitrix\Main\Engine\Controller;
 use Bitrix\Main\Error;
 use CloudMill\App\Basket\Service\BasketService;
-use CloudMill\App\Basket\Service\ServiceProvider;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use Throwable;
 
 final class BasketController extends Controller
@@ -45,12 +45,12 @@ final class BasketController extends Controller
 
     public function getAction(): array
     {
-        return $this->getBasketService()->getItems();
+        return $this->executeAction(fn() => $this->getBasketService()->getItems());
     }
 
     public function refreshAction(): array
     {
-        return $this->getBasketService()->refresh();
+        return $this->executeAction(fn() => $this->getBasketService()->refresh());
     }
 
     public function addAction(int $productId, float $quantity = 1): array
