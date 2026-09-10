@@ -51,10 +51,19 @@ final class CatalogCompareService
         }
 
         $offers = $this->loadOffers($ids);
-        $products = $this->loadProducts($ids);
+        $productIds = $ids;
+        foreach ($offers as $offer) {
+            $parentId = (int)($offer['PROPERTIES']['CML2_LINK']['VALUE'] ?? 0);
+            if ($parentId > 0) {
+                $productIds[] = $parentId;
+            }
+        }
+
+        $allProducts = $this->loadProducts(array_values(array_unique($productIds)));
+        $products = array_intersect_key($allProducts, array_flip($ids));
 
         if ($offers) {
-            $this->fillProductInfo($offers);
+            $this->fillProductInfo($offers, $allProducts);
             $this->fillOfferData($offers);
         }
 
@@ -77,22 +86,8 @@ final class CatalogCompareService
         return array_values($items);
     }
 
-    public function fillProductInfo(array &$items): void
+    private function fillProductInfo(array &$items, array $products): void
     {
-        $productIds = [];
-        foreach ($items as $item) {
-            $productId = (int)($item['PROPERTIES']['CML2_LINK']['VALUE'] ?? $item['ID'] ?? 0);
-            if ($productId > 0) {
-                $productIds[$productId] = $productId;
-            }
-        }
-
-        if (!$productIds) {
-            return;
-        }
-
-        $products = $this->catalogService->findByIds(array_values($productIds));
-
         $sectionIds = [];
         foreach ($products as $product) {
             $sectionId = (int)($product['IBLOCK_SECTION_ID'] ?? 0);
@@ -132,9 +127,9 @@ final class CatalogCompareService
         unset($item);
     }
 
-    public function fillDirectProductData(array &$items): void
+    private function fillDirectProductData(array &$items): void
     {
-        $this->fillProductInfo($items);
+        $this->fillProductInfo($items, $items);
 
         foreach ($items as &$item) {
             $imageId = (int)($item['PREVIEW_PICTURE'] ?: $item['DETAIL_PICTURE']);
@@ -148,7 +143,7 @@ final class CatalogCompareService
         unset($item);
     }
 
-    public function fillOfferData(array &$items): void
+    private function fillOfferData(array &$items): void
     {
         foreach ($items as &$item) {
             $product = $item['PRODUCT'] ?? [];
@@ -170,7 +165,7 @@ final class CatalogCompareService
         return $this->buildRows($items);
     }
 
-    public function removeEmptyProps(array &$propsMatrix): void
+    private function removeEmptyProps(array &$propsMatrix): void
     {
         $propsMatrix = array_values(array_filter($propsMatrix, static function (array $row): bool {
             foreach ($row['values'] as $value) {
@@ -183,7 +178,7 @@ final class CatalogCompareService
         }));
     }
 
-    public function groupItemsBySection(array $items): array
+    private function groupItemsBySection(array $items): array
     {
         $groups = [];
 
@@ -208,7 +203,7 @@ final class CatalogCompareService
         return array_values($groups);
     }
 
-    public function getActiveSection(array $items, ?string $sectionCode): ?array
+    private function getActiveSection(array $items, ?string $sectionCode): ?array
     {
         if (!$items) {
             return null;
