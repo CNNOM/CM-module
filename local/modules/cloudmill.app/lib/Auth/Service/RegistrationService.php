@@ -4,16 +4,15 @@ namespace CloudMill\App\Auth\Service;
 
 use Bitrix\Main\Result;
 use Bitrix\Main\Error;
-use Bitrix\Main\Loader;
 use Bitrix\Main\UserTable;
 use Bitrix\Main\Type\DateTime;
-use Bitrix\Highloadblock\HighloadBlockTable;
 use CUser;
 use CEvent;
+use CloudMill\App\Infrastructure\Bitrix\Wrappers\HighloadBlockManager;
 
 final class RegistrationService
 {
-    private const HL_BLOCK_ID = 7;
+    private const HL_BLOCK_CODE = 'CloudmillAuthRegistration';
     private const TTL_MINUTES = 5;
 
     public function startRegistration(array $data, string $userType): Result
@@ -199,62 +198,31 @@ final class RegistrationService
 
     private function findActivePendingByUserId(int $userId): ?array
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
-            return null;
-        }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-
-        $row = $entityClass::getList([
+        return HighloadBlockManager::getList(self::HL_BLOCK_CODE, [
             'filter' => [
                 '=UF_USER_ID' => $userId,
                 '=UF_STATUS' => 'pending',
                 '>=UF_DATE_EXPIRE' => new DateTime(),
             ],
             'limit' => 1
-        ])->fetch();
-
-        return $row ?: null;
+        ])[0] ?? null;
     }
 
     private function findActivePendingByEmail(string $email): ?array
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
-            return null;
-        }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-
-        $row = $entityClass::getList([
+        return HighloadBlockManager::getList(self::HL_BLOCK_CODE, [
             'filter' => [
                 '=UF_EMAIL' => $email,
                 '=UF_STATUS' => 'pending',
                 '>=UF_DATE_EXPIRE' => new DateTime(),
             ],
             'limit' => 1
-        ])->fetch();
-
-        return $row ?: null;
+        ])[0] ?? null;
     }
 
     private function findPendingRecord(string $email, string $code): ?array
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
-            return null;
-        }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-
-        $row = $entityClass::getList([
+        return HighloadBlockManager::getList(self::HL_BLOCK_CODE, [
             'filter' => [
                 '=UF_EMAIL' => $email,
                 '=UF_CONFIRM_CODE' => (int)$code,
@@ -262,23 +230,12 @@ final class RegistrationService
                 '>=UF_DATE_EXPIRE' => new DateTime(),
             ],
             'limit' => 1
-        ])->fetch();
-
-        return $row ?: null;
+        ])[0] ?? null;
     }
 
     private function findPendingRecordByPhone(string $phone, string $code): ?array
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
-            return null;
-        }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-
-        $row = $entityClass::getList([
+        return HighloadBlockManager::getList(self::HL_BLOCK_CODE, [
             'filter' => [
                 '=UF_PHONE' => $phone,
                 '=UF_CONFIRM_CODE' => (int)$code,
@@ -286,9 +243,7 @@ final class RegistrationService
                 '>=UF_DATE_EXPIRE' => new DateTime(),
             ],
             'limit' => 1
-        ])->fetch();
-
-        return $row ?: null;
+        ])[0] ?? null;
     }
 
     private function createHlRecord(int $userId, array $data, string $userType, int $code): ?int
@@ -314,43 +269,30 @@ final class RegistrationService
 
     private function saveToHlBlock(array $fields): ?int
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
+        $entity = HighloadBlockManager::getEntity(self::HL_BLOCK_CODE);
+        if (!is_string($entity)) {
             return null;
         }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-        $result = $entityClass::add($fields);
+        $result = $entity::add($fields);
         return $result->isSuccess() ? $result->getId() : null;
     }
 
     private function updatePendingFields(int $id, array $fields): void
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
+        $entity = HighloadBlockManager::getEntity(self::HL_BLOCK_CODE);
+        if (!is_string($entity)) {
             return;
         }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-        $entityClass::update($id, $fields);
+        $entity::update($id, $fields);
     }
 
     private function updatePendingCode(int $id, int $newCode, string $type): void
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
+        $entity = HighloadBlockManager::getEntity(self::HL_BLOCK_CODE);
+        if (!is_string($entity)) {
             return;
         }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-
-        $entityClass::update($id, [
+        $entity::update($id, [
             'UF_CONFIRM_CODE' => $newCode,
             'UF_CONFIRM_TYPE' => $type,
             'UF_DATE_EXPIRE' => (new DateTime())->add('+' . self::TTL_MINUTES . ' minutes'),
@@ -359,15 +301,11 @@ final class RegistrationService
 
     private function updatePendingStatus(int $id, string $status): void
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) {
+        $entity = HighloadBlockManager::getEntity(self::HL_BLOCK_CODE);
+        if (!is_string($entity)) {
             return;
         }
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-        $entityClass::update($id, ['UF_STATUS' => $status]);
+        $entity::update($id, ['UF_STATUS' => $status]);
     }
 
     private function sendCodeByEmail(string $email, int $code): void

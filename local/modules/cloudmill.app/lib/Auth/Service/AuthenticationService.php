@@ -6,7 +6,6 @@ namespace CloudMill\App\Auth\Service;
 use Bitrix\Main\Result;
 use Bitrix\Main\Error;
 use Bitrix\Main\UserTable;
-use Bitrix\Main\ErrorCollection;
 use Bitrix\Main\Loader;
 use CUser;
 
@@ -54,7 +53,7 @@ final class AuthenticationService
             $result->setData($this->getUserData());
         } else {
             $result->addError(new Error(
-                $this->getErrorMessage($loginResult['ERROR_TYPE'])
+                $this->getErrorMessage($loginResult['ERROR_TYPE'] ?? '')
             ));
         }
 
@@ -163,6 +162,7 @@ final class AuthenticationService
 
         $updateFields = [
             'NAME' => $data['name'],
+            'EMAIL' => $data['email'],
             'PERSONAL_PHONE' => $data['phone'],
             'PHONE_NUMBER' => $data['phone'],
         ];

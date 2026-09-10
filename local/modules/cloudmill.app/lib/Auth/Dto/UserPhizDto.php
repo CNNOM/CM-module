@@ -7,6 +7,7 @@ use Bitrix\Main\Validation\Rule\Phone;
 use Bitrix\Main\Validation\Rule\Email;
 use Bitrix\Main\Validation\Rule\NotEmpty;
 use Bitrix\Main\Validation\Rule\RegExp;
+use Bitrix\Main\Validation\Rule\Length;
 
 final class UserPhizDto
 {
@@ -22,6 +23,7 @@ final class UserPhizDto
         #[NotEmpty(errorMessage: "E-mail не может быть пустым")]
         public readonly string $email,
         #[NotEmpty(errorMessage: "Пароль не может быть пустым")]
+        #[Length(min: 8, max: 32, errorMessage: "Пароль должен быть от 8 до 32 символов")]
         public readonly string $password,
     )
     {

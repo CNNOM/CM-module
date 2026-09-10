@@ -194,6 +194,16 @@ final class AuthController extends Controller
             return null;
         }
 
+        $validationResult = ServiceProvider::ValidationService()->validate(
+            new PasswordDto($inputs['password'])
+        );
+        if (!$validationResult->isSuccess()) {
+            foreach ($validationResult->getErrors() as $error) {
+                $this->addError(new Error($error->getMessage()));
+            }
+            return null;
+        }
+
         $result = $recoveryService->resetPassword($inputs['token'], $inputs['password']);
         if (!$result->isSuccess()) {
             foreach ($result->getErrors() as $error) {

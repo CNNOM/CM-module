@@ -8,6 +8,7 @@ use Bitrix\Main\Validation\Rule\Email;
 use Bitrix\Main\Validation\Rule\NotEmpty;
 use Bitrix\Main\Validation\Rule\RegExp;
 use CloudMill\App\Auth\Validator\Inn;
+use Bitrix\Main\Validation\Rule\Length;
 
 final class UserYurDto
 {
@@ -28,6 +29,7 @@ final class UserYurDto
         #[NotEmpty(errorMessage: "Название организации не может быть пустым")]
         public readonly string $companyName,
         #[NotEmpty(errorMessage: "Пароль не может быть пустым")]
+        #[Length(min: 8, max: 32, errorMessage: "Пароль должен быть от 8 до 32 символов")]
         public readonly string $password,
     )
     {

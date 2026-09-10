@@ -5,16 +5,17 @@ namespace CloudMill\App\Auth\Service;
 
 use Bitrix\Main\Result;
 use Bitrix\Main\Error;
-use Bitrix\Main\Loader;
 use Bitrix\Main\UserTable;
 use Bitrix\Main\Type\DateTime;
-use Bitrix\Highloadblock\HighloadBlockTable;
 use CUser;
 use CEvent;
+use CloudMill\App\Auth\Dto\PasswordDto;
+use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
+use CloudMill\App\Infrastructure\Bitrix\Wrappers\HighloadBlockManager;
 
 final class PasswordRecoveryService
 {
-    private const HL_BLOCK_ID = 9;
+    private const HL_BLOCK_CODE = 'CloudmillAuthPasswordRecovery';
     private const TTL_MINUTES = 30;
 
     public function requestRecovery(string $login): Result
@@ -23,14 +24,15 @@ final class PasswordRecoveryService
 
         $user = $this->findUserByLogin($login);
         if (!$user) {
-            return $result->addError(new Error('Пользователь с таким email или телефоном не найден'));
+            // Не раскрываем существование учётной записи.
+            return $result;
         }
 
         $token = bin2hex(random_bytes(32));
 
         $fields = [
             'UF_USER_ID' => $user['ID'],
-            'UF_TOKEN'   => $token,
+            'UF_TOKEN'   => hash('sha256', $token),
             'UF_EMAIL'   => $user['EMAIL'],
             'UF_USED'    => false,
             'UF_DATE_CREATE' => new DateTime(),
@@ -49,6 +51,14 @@ final class PasswordRecoveryService
     public function resetPassword(string $token, string $newPassword): Result
     {
         $result = new Result();
+
+        $validation = ServiceProvider::ValidationService()->validate(new PasswordDto($newPassword));
+        if (!$validation->isSuccess()) {
+            foreach ($validation->getErrors() as $error) {
+                $result->addError(new Error($error->getMessage()));
+            }
+            return $result;
+        }
 
         $record = $this->findValidToken($token);
         if (!$record) {
@@ -86,45 +96,30 @@ final class PasswordRecoveryService
 
     private function saveToHlBlock(array $fields): ?int
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) return null;
+        $entity = HighloadBlockManager::getEntity(self::HL_BLOCK_CODE);
+        if (!is_string($entity)) return null;
 
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-        $result = $entityClass::add($fields);
+        $result = $entity::add($fields);
         return $result->isSuccess() ? $result->getId() : null;
     }
 
     private function findValidToken(string $token): ?array
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) return null;
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-
-        $row = $entityClass::getList([
+        return HighloadBlockManager::getList(self::HL_BLOCK_CODE, [
             'filter' => [
-                '=UF_TOKEN' => $token,
+                '=UF_TOKEN' => hash('sha256', $token),
                 '=UF_USED' => false,
                 '>=UF_DATE_EXPIRE' => new DateTime(),
             ],
-        ])->fetch();
-
-        return $row ?: null;
+        ])[0] ?? null;
     }
 
     private function markTokenUsed(int $id): void
     {
-        Loader::includeModule('highloadblock');
-        $hlblock = HighloadBlockTable::getById(self::HL_BLOCK_ID)->fetch();
-        if (!$hlblock) return;
-
-        $entity = HighloadBlockTable::compileEntity($hlblock);
-        $entityClass = $entity->getDataClass();
-        $entityClass::update($id, ['UF_USED' => true]);
+        $entity = HighloadBlockManager::getEntity(self::HL_BLOCK_CODE);
+        if (is_string($entity)) {
+            $entity::update($id, ['UF_USED' => true]);
+        }
     }
 
     private function sendRecoveryEmail(string $email, string $token): void

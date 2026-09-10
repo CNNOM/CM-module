@@ -59,9 +59,10 @@ final class HighloadBlockManager
 
     public static function getIDByName(string $name): ?string
     {
-        if (!$name) return '0';
+        if (!$name) return null;
 
-        return self::getInfo(filter: ['NAME' => $name])[0]['ID'];
+        $block = self::getInfo(filter: ['=NAME' => $name], limit: 1)[0] ?? null;
+        return $block ? (string)$block['ID'] : null;
     }
 
     public static function getInfo($order = ['ID' => 'ASC'], $filter = [], $select = ['*'], $limit = false, $preferBy = ''): array
@@ -95,7 +96,7 @@ final class HighloadBlockManager
         $hl = self::getEntity($hlCode);
         if (!$hl) return [];
 
-        if ($params['select'] && $preferBy) {
+        if (!empty($params['select']) && $preferBy) {
             $params['select'][] = $preferBy;
         }
 

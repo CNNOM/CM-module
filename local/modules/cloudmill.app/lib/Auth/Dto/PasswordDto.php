@@ -11,7 +11,7 @@ final class PasswordDto
 {
     public function __construct(
         #[NotEmpty(errorMessage: 'Новый пароль не может быть пустым')]
-        #[Length(min: 8, errorMessage: 'Пароль должен быть от 8 до 32 символов')]
+        #[Length(min: 8, max: 32, errorMessage: 'Пароль должен быть от 8 до 32 символов')]
         public ?string $password
     )
     {

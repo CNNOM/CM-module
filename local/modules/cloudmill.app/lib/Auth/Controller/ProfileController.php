@@ -10,8 +10,8 @@ use Bitrix\Main\Engine\Controller;
 use CloudMill\App\Infrastructure\Bitrix\DI\ServiceProvider;
 use Bitrix\Main\Error;
 use CloudMill\App\Auth\Dto\PasswordDto;
-use CloudMill\App\Auth\Dto\UserPhizDto;
-use CloudMill\App\Auth\Dto\UserYurDto;
+use CloudMill\App\Auth\Dto\ProfilePhizDto;
+use CloudMill\App\Auth\Dto\ProfileYurDto;
 
 
 class ProfileController extends Controller
@@ -65,20 +65,18 @@ class ProfileController extends Controller
         $validator = ServiceProvider::ValidationService();
 
         if ($isYur) {
-            $dto = new UserYurDto(
+            $dto = new ProfileYurDto(
                 name: $inputs['name'] ?? '',
                 phone: $inputs['tel'] ?? '',
                 email: $inputs['email'] ?? '',
-                INN: $inputs['inn'] ?? '',
-                companyName: $inputs['companyName'],
-                password: $inputs['email'] ?? ''
+                inn: $inputs['inn'] ?? '',
+                companyName: $inputs['companyName'] ?? '',
             );
         } else {
-            $dto = new UserPhizDto(
+            $dto = new ProfilePhizDto(
                 name: $inputs['name'] ?? '',
                 phone: $inputs['tel'] ?? '',
                 email: $inputs['email'] ?? '',
-                password: $inputs['email'] ?? ''
             );
         }
 
@@ -98,7 +96,7 @@ class ProfileController extends Controller
         ];
 
         if ($isYur) {
-            $data['inn'] = $dto->INN;
+            $data['inn'] = $dto->inn;
             $data['companyName'] = $dto->companyName;
         }
 
